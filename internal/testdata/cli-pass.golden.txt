@@ -1,0 +1,12 @@
+Verifier
+Content: PASS [bodies_match]
+  The Receipt signature is valid and both body hashes match.
+Code: PASS [release_valid]
+  The verified measurement matches a Build Record signed by a trusted Release Key, and Registry reports it as not revoked.
+Hardware: PASS [hardware_valid]
+  AMD certificate chain, report signature, CRL, policy and key binding checks passed.
+Receipt: POST api.example.com/v1/chat/completions, HTTP 200
+Bootstrap: https://veriprov.example.com, profile test, identity key JUO5L_EJVRFHatyDadtt3JM2ZaEZeN2hQE7hBmypVZ0
+Scope: Receipts cover exact body bytes, not HTTP headers, trailers or wire framing.
+Scope: Archived evidence proves Receipt key binding, not current liveness or trusted exchange time.
+Scope: Content integrity is relative to the signed Receipt; hardware and code trust are reported separately.

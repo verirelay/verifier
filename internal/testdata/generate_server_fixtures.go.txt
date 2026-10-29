@@ -1,0 +1,143 @@
+package proxy
+
+import (
+	"bytes"
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/binary"
+	"math/big"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/google/go-sev-guest/abi"
+	sevtest "github.com/google/go-sev-guest/testing"
+	"github.com/verirelay/protocol/avr1"
+	"github.com/verirelay/protocol/guest"
+	"github.com/verirelay/verirelay/internal/attestation"
+	"github.com/verirelay/verirelay/internal/storage"
+)
+
+// v2Provider returns version 3 Milan test reports signed by the test-only AMD
+// chain, with the HOST_DATA the host sets at launch.
+type v2Provider struct {
+	signer   *sevtest.AmdSigner
+	hostData [32]byte
+}
+
+func (p v2Provider) Quote(_ context.Context, q attestation.QuoteRequest) (attestation.Quote, error) {
+	rawArray := sevtest.CreateRawReport(&sevtest.TestReportOptions{ReportData: q.ReportData[:], Version: 3, FMS: 0x00a00f10})
+	raw := rawArray[:abi.ReportSize]
+	binary.LittleEndian.PutUint64(raw[0x08:0x10], abi.SnpPolicyToBytes(abi.SnpPolicy{}))
+	copy(raw[0xc0:0xe0], p.hostData[:])
+	r, s, err := p.signer.Sign(abi.SignedComponent(raw))
+	if err != nil {
+		return attestation.Quote{}, err
+	}
+	if err := abi.SetSignature(r, s, raw); err != nil {
+		return attestation.Quote{}, err
+	}
+	end, err := attestation.NewSEVSNPEndorsements(p.signer.Vcek.Raw, nil, p.signer.Ask.Raw, p.signer.Ark.Raw)
+	return attestation.Quote{RawReport: raw, Endorsements: end}, err
+}
+
+func TestGenerateVerifierV2Fixtures(t *testing.T) {
+	out := os.Getenv("VERIFIER_FIXTURE_DIR")
+	if out == "" {
+		t.Skip("set VERIFIER_FIXTURE_DIR to the existing output directory")
+	}
+	write := func(name string, data []byte) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(out, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)
+	signer, err := sevtest.DefaultTestOnlyCertChain("Milan-B1", now.Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A synthetic Bootstrap; the test-only identity key is protocol's envelope signature golden key.
+	bootstrap := []byte(`{"version":"veriprov-bootstrap/1","protocol":"veriprov/1","url":"https://veriprov.example.com","identity_public_key":"JUO5L_EJVRFHatyDadtt3JM2ZaEZeN2hQE7hBmypVZ0","profile":"test"}`)
+	parsed, err := guest.DecodeBootstrap(bootstrap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := parsed.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	key, err := avr1.NewReceiptSignerV1(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, 32)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := avr1.DecodeEd25519PublicKeyBase64URL(key.PublicKeyBase64URL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := attestation.NewManagerWithOptions(v2Provider{signer: signer, hostData: guest.HostData(bootstrap)}, attestation.ManagerOptions{
+		DisclosureReader: attestation.FileDisclosureReader{ManifestPath: filepath.Join("..", "attestation", "testdata", "guest-manifest.json")},
+		Bootstrap:        bootstrap,
+	})
+	a, err := manager.Attestation(context.Background(), attestation.Request{Nonce: make([]byte, 32), ReceiptPublicKey: public, KeyID: key.KeyID()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, response := []byte("{\"prompt\":\"Hello\"}"), []byte("{\"answer\":\"Hello from the upstream\"}")
+	signed, err := avr1.BuildSignedReceiptV1(avr1.ReceiptFactsV1{RequestID: "fixture-request", Timestamp: now.Format(time.RFC3339Nano), Method: "POST", UpstreamAuthority: "api.example.com", UpstreamPath: "/v1/chat/completions", ResponseStatus: 200, SNI: "api.example.com", UpstreamSPKISHA256: avr1.SHA256Hex([]byte("fixture-spki")), RequestBodySHA256: avr1.SHA256Hex(request), ResponseBodySHA256: avr1.SHA256Hex(response)}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipts, archives := storage.NewMemoryReceiptStore(), storage.NewMemoryAttestationStore()
+	if err := receipts.Save(context.Background(), signed.RequestID, signed); err != nil {
+		t.Fatal(err)
+	}
+	if err := archives.Save(context.Background(), a.KeyID, a, time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	for _, withAtt := range []bool{true, false} {
+		opts := Options{ReceiptStore: receipts}
+		name := "evidence-null.json"
+		if withAtt {
+			opts.AttestationStore = archives
+			name = "evidence.json"
+		}
+		handler := NewHandler(false, opts)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("GET", "/v1/avr/evidence/fixture-request", nil))
+		if w.Code != 200 {
+			t.Fatal(w.Body.String())
+		}
+		write(name, w.Body.Bytes())
+	}
+	plan := rawStorePlan{enabled: true, storeID: base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{3}, 16)), key: bytes.Repeat([]byte{2}, 32)}
+	capture, err := encryptRawExchange(plan, request, response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write("capture.json", capture)
+	write("request.txt", request)
+	write("response.txt", response)
+	headers := []byte("X-VeriRelay-Store-Id: " + plan.storeID + "\nX-VeriRelay-Store-Key: " + base64.RawURLEncoding.EncodeToString(plan.key) + "\n")
+	write("store-headers.txt", headers)
+	write("amd-ark.der", signer.Ark.Raw)
+	write("amd-ask.der", signer.Ask.Raw)
+	for _, revoked := range []bool{false, true} {
+		template := &x509.RevocationList{Number: big.NewInt(1), ThisUpdate: now.Add(-time.Hour), NextUpdate: now.Add(24 * time.Hour)}
+		name := "amd.crl"
+		if revoked {
+			template.RevokedCertificateEntries = []x509.RevocationListEntry{{SerialNumber: signer.Ask.SerialNumber, RevocationTime: now.Add(-time.Minute)}}
+			name = "amd-revoked.crl"
+		}
+		der, err := x509.CreateRevocationList(rand.Reader, template, signer.Ark, signer.Keys.Ark)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write(name, der)
+	}
+	t.Log("server-generated evidence, null archive, AES-GCM capture and signed synthetic AMD fixtures written")
+}

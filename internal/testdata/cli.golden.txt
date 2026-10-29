@@ -1,0 +1,12 @@
+Verifier
+Content: PASS [bodies_match]
+  The Receipt signature is valid and both body hashes match.
+Code: UNABLE [offline]
+  Offline mode skips Registry lookup and current revocation status.
+Hardware: UNABLE [attestation_missing]
+  The archived attestation is missing; hardware and key binding cannot be verified.
+Receipt: POST api.example.com/v1/chat/completions, HTTP 200
+Scope: Receipts cover exact body bytes, not HTTP headers, trailers or wire framing.
+Scope: Archived evidence proves Receipt key binding, not current liveness or trusted exchange time.
+Scope: Content integrity is relative to the signed Receipt; hardware and code trust are reported separately.
+Scope: AMD CRL checking was explicitly skipped; current hardware revocation status is unknown.

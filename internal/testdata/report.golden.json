@@ -1,0 +1,94 @@
+{
+  "version": "verifier-report/1",
+  "generated_at": "2026-10-27T00:00:00Z",
+  "content": {
+    "status": "pass",
+    "code": "bodies_match",
+    "reason": "The Receipt signature is valid and both body hashes match.",
+    "details": [
+      {
+        "code": "signature_valid",
+        "message": "Ed25519 signature verified using avr/1 JCS canonicalization."
+      },
+      {
+        "code": "body_hashes_match",
+        "message": "SHA-256 covers exact body bytes, not HTTP headers or framing."
+      }
+    ]
+  },
+  "code": {
+    "status": "pass",
+    "code": "release_valid",
+    "reason": "The verified measurement matches a Build Record signed by a trusted Release Key, and Registry reports it as not revoked.",
+    "details": [
+      {
+        "code": "release_signature_valid",
+        "message": "Build Record canonical payload and Ed25519 signature verified locally against a trusted Release Key."
+      },
+      {
+        "code": "registry_revocation_checked",
+        "message": "Live Registry revocation status checked. The absence of a revocation is not a signed historical non-revocation proof."
+      }
+    ]
+  },
+  "hardware": {
+    "status": "pass",
+    "code": "hardware_valid",
+    "reason": "AMD certificate chain, report signature, CRL, policy and key binding checks passed.",
+    "details": [
+      {
+        "code": "amd_chain_valid",
+        "message": "VCEK and the SNP report verify against embedded AMD roots, not supplied trust anchors."
+      },
+      {
+        "code": "binding_valid",
+        "message": "REPORT_DATA binds the archived nonce and the Receipt signing key."
+      },
+      {
+        "code": "policy_valid",
+        "message": "VMPL 0; debug, migration agents and CXL forbidden; TCB relationships checked. No minimum firmware advisory baseline is configured."
+      },
+      {
+        "code": "bootstrap_valid",
+        "message": "HOST_DATA is the SHA-256 of the disclosed Bootstrap."
+      },
+      {
+        "code": "crl_valid",
+        "message": "Current ARK-signed CRL checked for ASK revocation. AMD does not enumerate individual VCEK revocations."
+      }
+    ]
+  },
+  "receipt": {
+    "request_id": "fixture-request",
+    "method": "POST",
+    "upstream_host": "api.example.com",
+    "path": "/v1/chat/completions",
+    "status": 200,
+    "time": "2026-10-27T00:00:00Z",
+    "upstream_tls_spki": "06b7db3b4ba91dfd385118d56bb153b4ba53bd9178ceda3a98d31adb8b147e67"
+  },
+  "release": {
+    "repository": "https://github.com/verirelay/release",
+    "tag": "v1.0.0",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "bootstrap": {
+    "url": "https://veriprov.example.com",
+    "profile": "test",
+    "identity_public_key": "JUO5L_EJVRFHatyDadtt3JM2ZaEZeN2hQE7hBmypVZ0"
+  },
+  "limitations": [
+    {
+      "code": "headers_not_covered",
+      "message": "Receipts cover exact body bytes, not HTTP headers, trailers or wire framing."
+    },
+    {
+      "code": "no_liveness",
+      "message": "Archived evidence proves Receipt key binding, not current liveness or trusted exchange time."
+    },
+    {
+      "code": "receipt_relative_integrity",
+      "message": "Content integrity is relative to the signed Receipt; hardware and code trust are reported separately."
+    }
+  ]
+}

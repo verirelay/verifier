@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Verifier</title>
+<style>
+:root{--paper:#fff;--bg:#eef0f2;--ink:#171b20;--muted:#646d77;--line:#d9dde1;--soft:#f5f6f7;--green:#21684b;--red:#ac3636;--amber:#886014;--steel:#3f5a70;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.65}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+button:disabled{cursor:not-allowed;opacity:.4}
+button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+a{color:inherit;text-underline-offset:4px}
+[hidden]{display:none!important}
+h1,h2,h3,p{margin:0}
+h2{font-size:15px;font-weight:600}
+h3{font-size:18px;font-weight:600;line-height:1.4}
+code,.mono{font-family:var(--mono);font-size:12px}
+.frame{max-width:1040px;margin:40px auto;background:var(--paper);border:1px solid #bfc5cc}
+.topbar{height:64px;display:flex;justify-content:space-between;align-items:center;padding:0 40px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:650;letter-spacing:-.8px}
+.brand svg{width:24px;height:24px}
+.lang{display:flex;border:1px solid var(--line);line-height:1}
+.lang button{padding:7px 10px;font-size:12px}
+.lang button.active{background:var(--ink);color:#fff}
+.page{padding:8px 40px 0}
+.section{padding:28px 0;border-bottom:1px solid var(--line)}
+.head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:4px}
+.hint{font-size:12px;color:var(--muted)}
+.hint code{font-size:11px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:20px}
+.slot{margin-top:14px}
+.slot .slothead{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.slot .slothead label{font-size:13px;font-weight:550}
+.pick{font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:4px}
+.pick:hover{color:var(--ink)}
+textarea,input[type=text]{width:100%;border:0;border-bottom:1px solid #929ba4;background:var(--soft);border-radius:0;padding:10px 12px;font:12px/1.7 var(--mono)}
+textarea{height:132px;resize:vertical;display:block}
+.cols textarea{height:160px}
+.slot.dragging textarea,.slot.dragging .chip{background:#e6e9ec}
+.chip{display:flex;align-items:center;gap:12px;background:var(--soft);border-bottom:1px solid #929ba4;padding:10px 12px;min-height:44px}
+.chip .name{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.chip .size{font-size:12px;color:var(--muted)}
+.chip button{font-size:18px;line-height:1;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);line-height:1}
+.seg button{padding:7px 12px;font-size:12px;color:var(--muted)}
+.seg button.active{background:var(--ink);color:#fff}
+.actions{display:flex;align-items:center;gap:20px;padding:24px 0 32px;flex-wrap:wrap}
+.primary{display:inline-flex;align-items:center;gap:20px;background:var(--ink);color:#fff;min-height:44px;padding:10px 22px}
+.primary:hover:not(:disabled){background:#343b44}
+.secondary{border:1px solid #aeb5bd;min-height:44px;padding:10px 18px}
+.secondary:hover{background:var(--soft)}
+.textbtn{text-decoration:underline;text-underline-offset:5px;padding:7px 0}
+.status-line{font-size:13px;color:var(--muted)}
+.status-line.warn{color:var(--amber)}
+.error{color:var(--red)}
+.overall{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:28px 0 22px;flex-wrap:wrap}
+.overall .big{font-size:24px;font-weight:620;letter-spacing:-.5px}
+.overall .big.pass{color:var(--green)}.overall .big.fail{color:var(--red)}.overall .big.unable{color:var(--amber)}
+.overall .buttons{display:flex;gap:12px;align-items:center}
+.verdict{border-top:1px solid var(--line)}
+summary{list-style:none;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+.verdict summary{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:20px 0}
+.symbol{font:600 16px var(--mono);padding-top:2px}
+.verdict.pass .symbol{color:var(--green)}.verdict.fail .symbol{color:var(--red)}.verdict.unable .symbol{color:var(--amber)}
+.explain{color:var(--muted);font-size:13px;margin-top:4px;max-width:760px}
+.disclosure{display:inline-block;font-size:12px;color:var(--muted);margin-top:6px}
+.disclosure:after{content:' +';font-family:var(--mono)}
+details[open] .disclosure:after{content:' −'}
+.detailbody{margin:0 0 20px 38px;padding-left:14px;border-left:1px solid var(--line);font-size:13px;color:var(--muted);display:grid;gap:6px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 28px;margin-top:16px}
+.fact span{display:block;font-size:12px;color:var(--muted)}
+.fact div{font-family:var(--mono);font-size:12px;word-break:break-all;margin-top:2px}
+.body{margin-top:22px}
+.body+.body{margin-top:30px}
+.bodymeta{font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);word-break:break-all}
+pre{margin:10px 0 0;background:var(--soft);padding:14px 16px;font:12px/1.7 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:520px;overflow:auto;tab-size:2}
+pre.hex{white-space:pre;word-break:normal}
+.j-k{color:var(--ink);font-weight:600}.j-s{color:var(--steel)}.j-n{color:#6a5c86}.j-p{color:var(--muted)}
+.ev+.ev{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.ev-name{color:var(--muted)}
+.note{color:var(--muted);font-size:12px;margin-top:6px}
+@media(max-width:760px){.frame{margin:12px}.topbar{padding:0 20px}.page{padding:0 20px}.cols{grid-template-columns:1fr;gap:4px}.facts{grid-template-columns:1fr 1fr}.head{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<div class="frame">
+ <header class="topbar">
+  <div class="brand"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6.50 6.00 L15.00 6.00 L23.77 27.50 L15.27 27.50 Z" fill="#171b20"/><path d="M41.50 6.00 L33.00 6.00 L24.23 27.50 L32.73 27.50 Z" fill="#9a9da3"/><path d="M24.00 32.90 L29.60 38.50 L24.00 44.10 L18.40 38.50 Z" fill="#9a9da3"/></svg>Verifier</div>
+  <div class="lang" aria-label="Language"><button id="zh" class="active" aria-pressed="true">中文</button><button id="en" aria-pressed="false">EN</button></div>
+ </header>
+ <main id="input" class="page">
+  <section class="section">
+   <div id="slot-evidence"></div>
+  </section>
+  <section class="section">
+   <div class="head"><h2 data-i="bodies"></h2><div class="seg" id="bodymode"><button data-mode="plain" class="active" data-i="plain"></button><button data-mode="capture" data-i="capture"></button></div></div>
+   <p class="hint" data-i="bodiesHint"></p>
+   <div id="plain" class="cols"><div id="slot-request"></div><div id="slot-response"></div></div>
+   <div id="capturebox" hidden>
+    <div id="slot-capture"></div>
+    <div class="cols">
+     <div class="slot"><div class="slothead"><label for="storeid">Store-Id</label></div><input id="storeid" type="text" spellcheck="false" autocomplete="off" placeholder="X-VeriRelay-Store-Id"></div>
+     <div class="slot"><div class="slothead"><label for="storekey">Store-Key</label></div><input id="storekey" type="text" spellcheck="false" autocomplete="off" placeholder="X-VeriRelay-Store-Key"></div>
+    </div>
+   </div>
+  </section>
+  <div class="actions"><button id="verify" class="primary" disabled><span data-i="verify"></span><span aria-hidden="true">↗</span></button><p id="readiness" class="status-line" aria-live="polite"></p></div>
+ </main>
+ <main id="results" class="page" hidden>
+  <div class="overall"><div id="overall" class="big"></div><div class="buttons"><button id="export" class="secondary" data-i="export"></button><button id="restart" class="textbtn" data-i="restart"></button></div></div>
+  <div id="verdicts"></div>
+  <section class="section" style="border-top:1px solid var(--line)"><h2 data-i="receipt"></h2><div id="facts" class="facts"></div></section>
+  <section class="section"><h2 data-i="bootstrap"></h2><div id="bootfacts" class="facts"></div></section>
+  <section class="section" style="border-bottom:0"><h2 data-i="exchange"></h2><div id="exchange"></div></section>
+ </main>
+</div>
+<input id="fileinput" type="file" hidden>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const SLOTS=['evidence','request','response','capture'];
+const FORMAT_LIMIT=2<<20,HEX_LIMIT=64<<10;
+let lang='zh',page='input',bodyMode='plain',pickTarget=null,result=null,views={request:null,response:null},viewMode={request:'fmt',response:'fmt'};
+const files={evidence:null,request:null,response:null,capture:null};
+const words={
+zh:{bodies:'请求与响应',plain:'明文正文',capture:'原文留存',bodiesHint:'可选, 提供后核对内容是否与收据一致',
+ slots:{evidence:'收据证据包',request:'请求正文',response:'响应正文',capture:'原文留存密文'},
+ slotHints:{evidence:'<code>/v1/avr/evidence/&lt;request_id&gt;</code> 的返回内容',capture:'<code>/v1/avr/store/&lt;store_id&gt;</code> 的返回内容'},
+ placeholder:'粘贴内容, 或拖入文件',pick:'选择文件',remove:'移除',
+ verify:'开始验证',needEvidence:'需要收据证据包',needBodies:'未提供请求和响应正文, 只验证收据本身',needKey:'缺少 Store-Id 或 Store-Key, 只验证收据本身',busy:'正在验证…',error:'验证失败:',unknownFile:'无法识别文件类型, 请拖到对应输入框:',
+ overall:{pass:'✓ 全部通过',fail:'× 验证未通过',unable:'— 部分无法判断'},export:'导出报告 JSON',restart:'重新验证',details:'验证依据',
+ titles:['内容未被篡改','运行的是已发布的代码','运行在真实的 AMD 机密虚拟机中'],
+ receipt:'收据',exchange:'请求与响应',fields:['请求 ID','请求方法','上游','路径','响应状态','收据时间','上游 TLS SPKI'],
+ bootstrap:'引导文件',bootFields:['VeriProv 地址','Profile','VeriProv 身份公钥'],
+ request:'请求',response:'响应',fmt:'格式化',raw:'原文',hex:'Hex',absent:'未提供或无法解密',empty:'空正文',events:n=>n+' 个事件',gzip:'已解压 gzip',truncated:n=>'内容较大, 只显示前 '+n,binary:'二进制',
+ reasons:{bodies_match:'收据签名有效, 请求与响应正文的 SHA-256 都与收据一致',receipt_invalid:'收据签名或签名字段无效',bodies_missing:'收据签名有效, 未提供请求或响应正文, 无法核对内容',request_mismatch:'请求正文与收据不一致',response_mismatch:'响应正文与收据不一致',capture_key_missing:'缺少 Store-Id 或 Store-Key, 无法解密原文留存',capture_invalid:'原文留存解密失败, 请检查 Store-Id 与 Store-Key',attestation_missing:'收据证据包中没有证明报告, 无法核对 AMD 硬件与收据签名密钥',attestation_invalid:'无法读取归档的证明报告, 格式或编码不受支持',binding_invalid:'归档的证明报告没有绑定该收据的签名密钥',signer_unsupported:'只支持 VCEK 签名的证明报告',amd_invalid:'AMD 证书链, 证明报告签名或撤销检查失败',amd_unavailable:'无法取得 AMD 证书或当前有效的 CRL',policy_rejected:'TCB 一致性或安全策略检查失败',bootstrap_mismatch:'证明报告的 HOST_DATA 不是所披露引导文件的 SHA-256',bootstrap_unexpected:'证明报告的 HOST_DATA 不是指定引导文件的 SHA-256',bootstrap_invalid:'指定的引导文件无效',hardware_valid:'证明报告由真实的 AMD 安全处理器签名, 并与收据签名密钥绑定',crl_skipped:'证明报告签名与密钥绑定有效, 跳过了 CRL, 撤销状态未知',offline:'离线模式不查询 Registry',release_key_invalid:'配置的 Release Key 无效',release_key_untrusted:'Registry 中该启动度量的构建记录都不是由受信任的 Release Key 签名',measurement_untrusted:'没有经过验证且与收据绑定的启动度量',registry_url_invalid:'Registry 地址无效, 须为 HTTPS, 仅本机回环地址可用 HTTP',registry_unavailable:'Registry 暂时不可用',registry_invalid:'Registry 返回了无效数据',registry_incomplete:'Registry 返回了不完整的数据',measurement_unknown:'Registry 中没有与该启动度量对应的构建记录',build_record_invalid:'构建记录无效, 或受信任的 Release Key 签名无效',release_revoked:'Registry 已撤销此发布',revocation_invalid:'撤销声明的签名无效',release_valid:'启动度量与 Registry 中的构建记录一致, 受信任的 Release Key 签名有效且未被撤销',evidence_invalid:'无法解析收据证据包'},
+ detailText:{signature_valid:'收据的 Ed25519 签名有效 (avr/1, JCS 规范化)',body_hashes_match:'请求与响应正文逐字节的 SHA-256 一致, 不含头字段',amd_chain_valid:'VCEK 与证明报告验证至内置的 AMD 根证书',binding_valid:'REPORT_DATA 绑定了 Attestation Nonce 与收据签名密钥',policy_valid:'VMPL 为 0, 禁止调试, 迁移代理与 CXL, TCB 一致',bootstrap_valid:'HOST_DATA 是所披露引导文件的 SHA-256',bootstrap_expected:'HOST_DATA 是指定引导文件的 SHA-256',crl_skipped:'跳过了 CRL, 撤销状态未知',crl_valid:'已检查当前 AMD CRL, ASK 未被撤销',release_signature_valid:'已用受信任的 Release Key 在本机核对构建记录签名',registry_revocation_checked:'已向 Registry 查询当前撤销状态'}},
+en:{bodies:'Request and response',plain:'Plain bodies',capture:'Raw Capture',bodiesHint:'Optional. Checked against the Receipt when provided',
+ slots:{evidence:'Receipt Evidence Bundle',request:'Request body',response:'Response body',capture:'Raw Capture ciphertext'},
+ slotHints:{evidence:'Response of <code>/v1/avr/evidence/&lt;request_id&gt;</code>',capture:'Response of <code>/v1/avr/store/&lt;store_id&gt;</code>'},
+ placeholder:'Paste content, or drop a file',pick:'Choose file',remove:'Remove',
+ verify:'Verify',needEvidence:'Receipt Evidence Bundle is required',needBodies:'No request or response body; only the Receipt is checked',needKey:'Store-Id or Store-Key is missing; only the Receipt is checked',busy:'Verifying…',error:'Verification failed:',unknownFile:'Unrecognized file, drop it on the matching field:',
+ overall:{pass:'✓ All checks passed',fail:'× Verification failed',unable:'— Some checks inconclusive'},export:'Export report JSON',restart:'Verify another',details:'Details',
+ titles:['Content not tampered with','Runs released code','Runs on a genuine AMD CVM'],
+ receipt:'Receipt',exchange:'Request and response',fields:['Request ID','Method','Upstream','Path','Status','Receipt time','Upstream TLS SPKI'],
+ bootstrap:'Bootstrap',bootFields:['VeriProv URL','Profile','VeriProv identity key'],
+ request:'Request',response:'Response',fmt:'Formatted',raw:'Raw',hex:'Hex',absent:'Not provided or could not be decrypted',empty:'Empty body',events:n=>n+' events',gzip:'gzip decompressed',truncated:n=>'Large body, showing the first '+n,binary:'binary',
+ reasons:{},detailText:{}}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const size=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+
+function slotHTML(kind){const t=words[lang],f=files[kind],hint=t.slotHints[kind];
+ return `<div class="slot" data-slot="${kind}"><div class="slothead">${kind==='evidence'?`<h2>${t.slots[kind]}</h2>`:`<label for="ta-${kind}">${t.slots[kind]}</label>`}<button class="pick" data-pick="${kind}">${t.pick}</button></div>${hint?`<p class="hint" style="margin:-2px 0 8px">${hint}</p>`:''}`+
+ (f?`<div class="chip"><span class="name">${esc(f.name)}</span><span class="size">${size(f.size)}</span><button data-clear="${kind}" aria-label="${t.remove} ${esc(f.name)}">×</button></div>`:`<textarea id="ta-${kind}" data-text="${kind}" spellcheck="false" placeholder="${t.placeholder}"></textarea>`)+`</div>`}
+function renderSlots(){for(const k of SLOTS){const box=$('slot-'+k),ta=box.querySelector('textarea'),value=ta?ta.value:'';box.innerHTML=slotHTML(k);const nta=box.querySelector('textarea');if(nta)nta.value=value}}
+function text(kind){const ta=$('ta-'+kind);return ta?ta.value:''}
+function blob(kind){if(files[kind])return files[kind];const v=text(kind);return v===''?null:new Blob([v])}
+function has(kind){return files[kind]!==null||text(kind).trim()!==''}
+function parseStore(s){return{id:s.match(/(?:x-verirelay-)?store-id\s*:\s*([A-Za-z0-9_-]+)/i)?.[1],key:s.match(/(?:x-verirelay-)?store-key\s*:\s*([A-Za-z0-9_-]+)/i)?.[1]}}
+function fillStore(s){const p=parseStore(s);if(!p.id&&!p.key)return false;if(p.id)$('storeid').value=p.id;if(p.key)$('storekey').value=p.key;return true}
+function setMode(m){bodyMode=m;$('bodymode').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));$('plain').hidden=m!=='plain';$('capturebox').hidden=m!=='capture';readiness()}
+function readiness(){const t=words[lang],ev=has('evidence');let code='';
+ if(!ev)code='needEvidence';else if(bodyMode==='plain'&&!has('request')&&!has('response'))code='needBodies';else if(bodyMode==='capture'&&!has('capture'))code='needBodies';else if(bodyMode==='capture'&&(!$('storeid').value.trim()||!$('storekey').value.trim()))code='needKey';
+ $('readiness').className='status-line'+(code&&ev?' warn':'');$('readiness').textContent=code?t[code]:'';$('verify').disabled=!ev}
+async function addFiles(list,target){const t=words[lang];$('readiness').classList.remove('error');
+ for(const f of Array.from(list)){if(target){files[target]=f;continue}
+  const data=new FormData();data.append('files',f);
+  try{const res=await fetch('api/identify',{method:'POST',body:data});if(!res.ok)throw Error(await res.text());const kind=(await res.json())[0]?.kind;
+   if(kind==='store_headers'){fillStore(await f.text());setMode('capture');continue}
+   if(SLOTS.includes(kind)){files[kind]=f;if(kind==='capture')setMode('capture');if(kind==='request'||kind==='response')setMode('plain');continue}
+   showError(t.unknownFile+' '+f.name);return}catch(e){showError(t.error+' '+e.message);return}}
+ renderSlots();readiness()}
+function showError(m){$('readiness').textContent=m;$('readiness').className='status-line error'}
+
+async function verify(){const t=words[lang];$('verify').disabled=true;$('readiness').className='status-line';$('readiness').textContent=t.busy;
+ const data=new FormData(),add=k=>{const b=blob(k);if(b)data.append(k,b,files[k]?.name||k)};add('evidence');
+ if(bodyMode==='plain'){add('request');add('response')}else{add('capture');data.append('store_id',$('storeid').value.trim());data.append('store_key',$('storekey').value.trim())}
+ try{const res=await fetch('api/verify',{method:'POST',body:data});if(!res.ok)throw Error(await res.text());const body=await res.json();result=body.report;
+  views={request:await analyze(decode64(body.request_body)),response:await analyze(decode64(body.response_body))};viewMode={request:'fmt',response:'fmt'};page='results';render();window.scrollTo(0,0)}
+ catch(e){showError(t.error+' '+e.message);$('verify').disabled=false}}
+const decode64=s=>s===null||s===undefined?null:Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+
+async function analyze(bytes){if(bytes===null)return null;let shown=bytes,gzip=false;
+ if(bytes.length>2&&bytes[0]===0x1f&&bytes[1]===0x8b&&typeof DecompressionStream==='function'){try{shown=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());gzip=true}catch{shown=bytes}}
+ let str=null;try{str=new TextDecoder('utf-8',{fatal:true}).decode(shown)}catch{}
+ return{bytes,shown,gzip,str,kind:str===null?'binary':detect(str)}}
+function detect(s){const x=s.trim();if(x==='')return 'empty';
+ try{JSON.parse(x);return 'json'}catch{}
+ const lines=x.split(/\r?\n/).filter(l=>l.trim()!=='');
+ if(lines.length&&lines.every(l=>/^(data|event|id|retry)\s*:|^:/.test(l)))return 'sse';
+ if(lines.length>1&&lines.every(l=>{try{JSON.parse(l);return true}catch{return false}}))return 'ndjson';
+ if(/^[^\s=&]+=[^\s&]*(&[^\s=&]+=[^\s&]*)*$/.test(x))return 'form';
+ return 'text'}
+function prettyJSON(src){let out='',ind=0,i=0;const pad=n=>'  '.repeat(n),ws=/\s/;
+ const next=()=>{while(i<src.length&&ws.test(src[i]))i++;return src[i]};
+ const isEmpty=close=>{const save=i;i++;const c=next();i=save;return c===close};
+ while(i<src.length){const c=src[i];
+  if(ws.test(c)){i++;continue}
+  if(c==='"'){let j=i+1;while(j<src.length&&src[j]!=='"'){if(src[j]==='\\')j++;j++}const tok=src.slice(i,j+1);i=j+1;let shown=tok;try{shown=JSON.stringify(JSON.parse(tok))}catch{}
+   const key=next()===':';out+=`<span class="${key?'j-k':'j-s'}">${esc(shown)}</span>`;continue}
+  if(c==='{'||c==='['){const close=c==='{'?'}':']';if(isEmpty(close)){i++;next();i++;out+=`<span class="j-p">${c}${close}</span>`;continue}ind++;out+=`<span class="j-p">${c}</span>\n`+pad(ind);i++;continue}
+  if(c==='}'||c===']'){ind--;out+='\n'+pad(ind)+`<span class="j-p">${c}</span>`;i++;continue}
+  if(c===','){out+=`<span class="j-p">,</span>\n`+pad(ind);i++;continue}
+  if(c===':'){out+='<span class="j-p">:</span> ';i++;continue}
+  let j=i;while(j<src.length&&!/[\s,\]}:]/.test(src[j]))j++;out+=`<span class="j-n">${esc(src.slice(i,j))}</span>`;i=j}
+ return out}
+function sseHTML(s){const blocks=s.replace(/\r\n/g,'\n').split(/\n\n+/).filter(b=>b.trim()!=='');
+ return{count:blocks.length,html:blocks.map(b=>{let name='',data=[],other=[];for(const l of b.split('\n')){const m=l.match(/^(\w+)\s*:\s?(.*)$/);if(!m){other.push(l);continue}if(m[1]==='event')name=m[2];else if(m[1]==='data')data.push(m[2]);else other.push(l)}
+  const d=data.join('\n');let body=esc(d);try{JSON.parse(d);body=prettyJSON(d)}catch{}
+  return `<div class="ev">${name?`<div class="ev-name">event: ${esc(name)}</div>`:''}${other.length?`<div class="ev-name">${esc(other.join('\n'))}</div>`:''}${body}</div>`}).join('')}}
+function hexDump(b){const n=Math.min(b.length,HEX_LIMIT);let rows=[];for(let r=0;r<n;r+=16){const c=b.slice(r,Math.min(r+16,n));rows.push(r.toString(16).padStart(8,'0')+'  '+Array.from(c,x=>x.toString(16).padStart(2,'0')).join(' ').padEnd(47,' ')+'  '+Array.from(c,x=>x>=32&&x<127?String.fromCharCode(x):'.').join(''))}return rows.join('\n')}
+function bodyView(kind){const t=words[lang],v=views[kind],mode=viewMode[kind],r=result.receipt||{};
+ const line=kind==='request'?[r.method,(r.upstream_host||'')+(r.path||'')].filter(Boolean).join(' '):(r.status?String(r.status):'');
+ let meta=[line],content='',note='',cls='';
+ if(v===null){content=esc(t.absent)}else{
+  const label={json:'JSON',sse:'SSE',ndjson:'NDJSON',form:'Form',text:'Text',empty:t.empty,binary:t.binary}[v.kind];meta.push(label+' · '+size(v.bytes.length));if(v.gzip)meta.push(t.gzip);
+  const effective=mode==='fmt'&&v.kind==='binary'?'hex':mode;
+  if(effective==='hex'){cls='hex';content=esc(hexDump(v.bytes));if(v.bytes.length>HEX_LIMIT)note=t.truncated(size(HEX_LIMIT))}
+  else if(v.str===null){content=esc(new TextDecoder().decode(v.shown.slice(0,FORMAT_LIMIT)))}
+  else if(effective==='raw'||v.str.length>FORMAT_LIMIT){content=esc(v.str.slice(0,FORMAT_LIMIT));if(v.str.length>FORMAT_LIMIT)note=t.truncated(size(FORMAT_LIMIT))}
+  else if(v.kind==='json')content=prettyJSON(v.str);
+  else if(v.kind==='sse'){const s=sseHTML(v.str);meta.push(t.events(s.count));content=s.html}
+  else if(v.kind==='ndjson')content=v.str.split(/\r?\n/).filter(l=>l.trim()!=='').map(l=>`<div class="ev">${prettyJSON(l)}</div>`).join('');
+  else if(v.kind==='form')content=v.str.trim().split('&').map(p=>{const [k,...rest]=p.split('=');const d=x=>{try{return decodeURIComponent(x.replace(/\+/g,' '))}catch{return x}};return `<span class="j-k">${esc(d(k))}</span> <span class="j-p">=</span> <span class="j-s">${esc(d(rest.join('=')))}</span>`}).join('\n');
+  else content=esc(v.kind==='empty'?t.empty:v.str)}
+ const modes=v===null?'':`<div class="seg" data-body="${kind}">${['fmt','raw','hex'].map(m=>`<button data-view="${m}" class="${m===mode?'active':''}">${t[m]}</button>`).join('')}</div>`;
+ return `<div class="body"><div class="head"><div><h3>${t[kind]}</h3><div class="bodymeta">${esc(meta.filter(Boolean).join(' · '))}</div></div>${modes}</div><pre class="${cls}" tabindex="0">${content}</pre>${note?`<p class="note">${esc(note)}</p>`:''}</div>`}
+function releaseLinks(release){if(!release)return '';try{const u=new URL(release.repository);if(!['http:','https:'].includes(u.protocol))return '';const base=u.href.replace(/\/$/,'');return `<div><a href="${esc(base+'/releases/tag/'+encodeURIComponent(release.tag))}" target="_blank" rel="noopener noreferrer">${esc(release.tag)} ↗</a> &nbsp; <a href="${esc(base+'/commit/'+release.commit)}" target="_blank" rel="noopener noreferrer"><code>${esc(release.commit.slice(0,12))} ↗</code></a></div>`}catch{return ''}}
+function renderResults(){const t=words[lang],vs=[result.content,result.code,result.hardware];
+ const status=vs.some(v=>v.status==='fail')?'fail':vs.some(v=>v.status!=='pass')?'unable':'pass';$('overall').className='big '+status;$('overall').textContent=t.overall[status];
+ $('verdicts').innerHTML=vs.map((v,i)=>`<details class="verdict ${esc(v.status)}"><summary><span class="symbol">${{pass:'✓',fail:'×'}[v.status]||'—'}</span><div><h3>${t.titles[i]}</h3><p class="explain">${esc(t.reasons[v.code]||v.reason)}</p><span class="disclosure">${t.details}</span></div></summary><div class="detailbody">${v.details.map(d=>`<div>${esc(t.detailText[d.code]||d.message)}</div>`).join('')}<div><code>${esc(v.code)}</code> ${esc(v.reason)}</div>${i===1?releaseLinks(result.release):''}</div></details>`).join('');
+ const facts=(fields,values)=>fields.map((f,i)=>`<div class="fact"><span>${f}</span><div>${esc(values[i]||'—')}</div></div>`).join('');
+ const r=result.receipt;$('facts').parentElement.hidden=!r;
+ if(r)$('facts').innerHTML=facts(t.fields,[r.request_id,r.method,r.upstream_host,r.path,r.status,r.time,r.upstream_tls_spki]);
+ const b=result.bootstrap;$('bootfacts').parentElement.hidden=!b;
+ if(b)$('bootfacts').innerHTML=facts(t.bootFields,[b.url,b.profile,b.identity_public_key]);
+ $('exchange').innerHTML=bodyView('request')+bodyView('response')}
+function render(){const t=words[lang];document.documentElement.lang=lang==='zh'?'zh-CN':'en';
+ document.querySelectorAll('[data-i]').forEach(el=>el.textContent=t[el.dataset.i]||'');
+ for(const l of ['zh','en']){$(l).classList.toggle('active',lang===l);$(l).setAttribute('aria-pressed',String(lang===l))}
+ $('input').hidden=page!=='input';$('results').hidden=page!=='results';renderSlots();readiness();if(result&&page==='results')renderResults()}
+
+$('zh').onclick=()=>{lang='zh';render()};$('en').onclick=()=>{lang='en';render()};
+$('bodymode').onclick=e=>{const m=e.target.dataset.mode;if(m)setMode(m)};
+$('input').addEventListener('click',e=>{const p=e.target.dataset.pick,c=e.target.dataset.clear;if(p){pickTarget=p;$('fileinput').click()}if(c){files[c]=null;renderSlots();readiness()}});
+$('input').addEventListener('paste',e=>{if((e.target.id==='storeid'||e.target.id==='storekey')&&fillStore(e.clipboardData.getData('text'))){e.preventDefault();readiness()}});
+$('input').addEventListener('input',e=>{if(e.target.id==='storeid'||e.target.id==='storekey')fillStore(e.target.value);readiness()});
+$('fileinput').onchange=e=>{addFiles(e.target.files,pickTarget);pickTarget=null;e.target.value=''};
+document.addEventListener('dragover',e=>{if(page!=='input')return;e.preventDefault();document.querySelectorAll('.slot.dragging').forEach(s=>s.classList.remove('dragging'));e.target.closest?.('[data-slot]')?.classList.add('dragging')});
+document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.querySelectorAll('.slot.dragging').forEach(s=>s.classList.remove('dragging'))});
+document.addEventListener('drop',e=>{if(page!=='input')return;e.preventDefault();document.querySelectorAll('.slot.dragging').forEach(s=>s.classList.remove('dragging'));if(!e.dataTransfer.files.length)return;const target=e.target.closest?.('[data-slot]')?.dataset.slot;addFiles(target?[e.dataTransfer.files[0]]:e.dataTransfer.files,target||null)});
+$('verify').onclick=verify;
+$('restart').onclick=()=>{for(const k of SLOTS)files[k]=null;document.querySelectorAll('[data-text]').forEach(t=>t.value='');$('storeid').value=$('storekey').value='';result=null;page='input';setMode('plain');render();window.scrollTo(0,0)};
+$('exchange').onclick=e=>{const b=e.target.closest('[data-view]');if(!b)return;viewMode[b.parentElement.dataset.body]=b.dataset.view;$('exchange').innerHTML=bodyView('request')+bodyView('response')};
+$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='verifier-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+render();
+</script>
+</body>
+</html>
