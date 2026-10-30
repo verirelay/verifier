@@ -6,6 +6,7 @@ Code: PASS [release_valid]
 Hardware: PASS [hardware_valid]
   AMD certificate chain, report signature, CRL, policy and key binding checks passed.
 Receipt: POST api.example.com/v1/chat/completions, HTTP 200
+Release: https://github.com/verirelay/release v1.0.0, commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 Bootstrap: https://veriprov.example.com, profile test, identity key JUO5L_EJVRFHatyDadtt3JM2ZaEZeN2hQE7hBmypVZ0
 Scope: Receipts cover exact body bytes, not HTTP headers, trailers or wire framing.
 Scope: Archived evidence proves Receipt key binding, not current liveness or trusted exchange time.

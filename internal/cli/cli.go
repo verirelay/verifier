@@ -223,6 +223,11 @@ func Print(out io.Writer, r verifier.Report) error {
 			return err
 		}
 	}
+	if rel := r.Release; rel != nil {
+		if _, err := fmt.Fprintf(out, "Release: %s %s, commit %s\n", rel.Repository, rel.Tag, rel.Commit); err != nil {
+			return err
+		}
+	}
 	if b := r.Bootstrap; b != nil {
 		profile := ""
 		if b.Profile != "" {
