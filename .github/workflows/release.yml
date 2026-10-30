@@ -51,4 +51,27 @@ jobs:
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$RELEASE_TAG" dist/release/* --verify-tag --title "$RELEASE_TAG" --generate-notes
+        run: |
+          set -euo pipefail
+          # The quoted heredoc keeps Markdown backticks literal; @REPO@ and @TAG@ are filled in below.
+          notes="$(cat <<'EOF'
+          Verifier checks a VeriRelay Receipt on your own machine: content integrity, build identity and AMD hardware trust, each with its own verdict.
+
+          Download the binary for your platform. Run it with no arguments to open the local web page, or use `verifier check` in scripts. See the [CLI reference](https://github.com/@REPO@/blob/@TAG@/docs/cli.md).
+
+          ## Verify
+
+          ```bash
+          sha256sum --check --ignore-missing SHA256SUMS
+          gh attestation verify verifier-linux-amd64 \
+            --repo @REPO@ \
+            --signer-workflow @REPO@/.github/workflows/release.yml
+          ```
+          EOF
+          )"
+          notes="${notes//@REPO@/"$GITHUB_REPOSITORY"}"
+          notes="${notes//@TAG@/"$RELEASE_TAG"}"
+          printf '%s\n' "$notes" > "$RUNNER_TEMP/RELEASE_NOTES.md"
+          # Generated notes append the changelog link after ours.
+          gh release create "$RELEASE_TAG" dist/release/* --verify-tag --title "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/RELEASE_NOTES.md" --generate-notes
